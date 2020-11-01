@@ -3,7 +3,15 @@ using UnityEngine;
 
 public class OutputResult
 {
-    public static int initialize(string fileName)
+    public OutputResult(string fileName)
+    {
+        this.fileName = fileName;
+    }
+
+    private string fileName;
+    private string eyeDataFilePath;
+
+    public int initialize()
     {
         // Resultsフォルダが存在しないときは作成する
         string folderPath = Application.dataPath + "/Results";
@@ -13,8 +21,54 @@ public class OutputResult
             di.Create();
         }
 
-        string filePath = Application.dataPath + "/Results/" + fileName;
-        FileInfo fi = new FileInfo(filePath);
+        return initializeEyeDataFile();
+    }
+
+    public void writeEyeData(EyeTrackingData data, float globalTime)
+    {
+        FileInfo fi = new FileInfo(eyeDataFilePath);
+        string dataRow = "";
+        dataRow += $"{data.localGazeDirection.x} {data.localGazeDirection.y} {data.localGazeDirection.z}";
+        dataRow += $" {data.gazeDistance}";
+        dataRow += $" {data.lastConfidence}";
+        dataRow += $" {data.gazeNormalLeft.x} {data.gazeNormalLeft.y} {data.gazeNormalLeft.z}";
+        dataRow += $" {data.gazeNormalRight.x} {data.gazeNormalRight.y} {data.gazeNormalRight.z}";
+        dataRow += $" {data.eyeCenterLeft.x} {data.eyeCenterLeft.y} {data.eyeCenterLeft.z}";
+        dataRow += $" {data.eyeCenterRight.x} {data.eyeCenterRight.y} {data.eyeCenterRight.z}";
+        dataRow += $" {globalTime}";
+
+        using (StreamWriter writer = fi.AppendText())
+        {
+            writer.WriteLine(dataRow);
+            writer.Close();
+        }
+    }
+
+    // public static void writeResult(string fileName, ExperimentData exData)
+    // {
+    //     string filePath = Application.dataPath + "/Results/" + fileName;
+    //     FileInfo fi = new FileInfo(filePath);
+    //     string dataRow = "";
+    //     dataRow += $"{exData.eyeTrackingData.localGazeDirection.x} {exData.eyeTrackingData.localGazeDirection.y} {exData.eyeTrackingData.localGazeDirection.z}";
+    //     dataRow += $" {exData.eyeTrackingData.gazeDistance}";
+    //     dataRow += $" {exData.eyeTrackingData.lastConfidence}";
+    //     dataRow += $" {exData.eyeTrackingData.gazeNormalLeft.x} {exData.eyeTrackingData.gazeNormalLeft.y} {exData.eyeTrackingData.gazeNormalLeft.z}";
+    //     dataRow += $" {exData.eyeTrackingData.gazeNormalRight.x} {exData.eyeTrackingData.gazeNormalRight.y} {exData.eyeTrackingData.gazeNormalRight.z}";
+    //     dataRow += $" {exData.eyeTrackingData.eyeCenterLeft.x} {exData.eyeTrackingData.eyeCenterLeft.y} {exData.eyeTrackingData.eyeCenterLeft.z}";
+    //     dataRow += $" {exData.eyeTrackingData.eyeCenterRight.x} {exData.eyeTrackingData.eyeCenterRight.y} {exData.eyeTrackingData.eyeCenterRight.z}";
+    //     dataRow += $" {exData.globalTime}";
+
+    //     using (StreamWriter writer = fi.AppendText())
+    //     {
+    //         writer.WriteLine(dataRow);
+    //         writer.Close();
+    //     }
+    // }
+
+    private int initializeEyeDataFile()
+    {
+        eyeDataFilePath = Application.dataPath + $"/Results/{fileName}_eye_data.txt";
+        FileInfo fi = new FileInfo(eyeDataFilePath);
         string header = "";
         header += "local_gaze_direction_x local_gaze_direction_y local_gaze_direction_z";
         header += " gaze_distance";
@@ -39,27 +93,6 @@ public class OutputResult
             // ファイルが既に存在するときは、-1を返す
             Debug.Log("File already exists");
             return -1;
-        }
-    }
-
-    public static void writeResult(string fileName, ExperimentData exData)
-    {
-        string filePath = Application.dataPath + "/Results/" + fileName;
-        FileInfo fi = new FileInfo(filePath);
-        string dataRow = "";
-        dataRow += $"{exData.eyeTrackingData.localGazeDirection.x} {exData.eyeTrackingData.localGazeDirection.y} {exData.eyeTrackingData.localGazeDirection.z}";
-        dataRow += $" {exData.eyeTrackingData.gazeDistance}";
-        dataRow += $" {exData.eyeTrackingData.lastConfidence}";
-        dataRow += $" {exData.eyeTrackingData.gazeNormalLeft.x} {exData.eyeTrackingData.gazeNormalLeft.y} {exData.eyeTrackingData.gazeNormalLeft.z}";
-        dataRow += $" {exData.eyeTrackingData.gazeNormalRight.x} {exData.eyeTrackingData.gazeNormalRight.y} {exData.eyeTrackingData.gazeNormalRight.z}";
-        dataRow += $" {exData.eyeTrackingData.eyeCenterLeft.x} {exData.eyeTrackingData.eyeCenterLeft.y} {exData.eyeTrackingData.eyeCenterLeft.z}";
-        dataRow += $" {exData.eyeTrackingData.eyeCenterRight.x} {exData.eyeTrackingData.eyeCenterRight.y} {exData.eyeTrackingData.eyeCenterRight.z}";
-        dataRow += $" {exData.globalTime}";
-
-        using (StreamWriter writer = fi.AppendText())
-        {
-            writer.WriteLine(dataRow);
-            writer.Close();
         }
     }
 }

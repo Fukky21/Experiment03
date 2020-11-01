@@ -336,7 +336,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1222c5ff8fa04e84db4aa9b4ee8f4d7b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  fileName: test.txt
+  fileName: test
   MainCamera: {fileID: 534669904}
   Sphere: {fileID: 1544537180}
 --- !u!4 &842670522

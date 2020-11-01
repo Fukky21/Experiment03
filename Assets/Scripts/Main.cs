@@ -5,16 +5,18 @@ using UnityEngine;
 public class Main : MonoBehaviour
 {
     [Header("Settings")]
-    public string fileName;
+    public string fileName; // 拡張子は付けずに指定
 
     public Camera MainCamera;
     public GameObject Sphere;
 
+    OutputResult outputResult;
     private int phase = 0;
     private float globalTime = 0f;
 
     void Start()
     {
+        outputResult = new OutputResult(fileName);
         SetupCamera();
         SetupSphere();
     }
@@ -31,7 +33,7 @@ public class Main : MonoBehaviour
             // キャリブレーション終了～記録開始準備
             if (Input.GetKeyDown(KeyCode.Space))
             {
-                if (OutputResult.initialize(fileName) == -1)
+                if (outputResult.initialize() == -1)
                 {
                     Application.Quit();
                 }
@@ -52,10 +54,10 @@ public class Main : MonoBehaviour
         else if (phase == 2)
         {
             // 記録開始～記録終了
-            OutputResult.writeResult(fileName, new ExperimentData(
+            outputResult.writeEyeData(
                 PupilLabs.EyeTrackingDataManager.getEyeTrackingData(),
                 globalTime
-            ));
+            );
             globalTime += Time.deltaTime;
 
             if (Input.GetKeyDown(KeyCode.E))
