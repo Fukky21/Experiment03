@@ -54,8 +54,9 @@ public class Main : MonoBehaviour
         else if (phase == 2)
         {
             // 記録開始～記録終了
-            outputResult.writeEyeData(
+            outputResult.writeData(
                 PupilLabs.EyeTrackingDataManager.getEyeTrackingData(),
+                new HeadTrackingData(MainCamera.transform),
                 globalTime
             );
             globalTime += Time.deltaTime;
