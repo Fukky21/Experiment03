@@ -15,7 +15,15 @@ public class OutputResult
 
         string filePath = Application.dataPath + "/Results/" + fileName;
         FileInfo fi = new FileInfo(filePath);
-        string header = "This is Header";
+        string header = "";
+        header += "local_gaze_direction_x local_gaze_direction_y local_gaze_direction_z";
+        header += " gaze_distance";
+        header += " last_confidence";
+        header += " gaze_normal_left_x gaze_normal_left_y gaze_normal_left_z";
+        header += " gaze_normal_right_x gaze_normal_right_y gaze_normal_right_z";
+        header += " eye_center_left_x eye_center_left_y eye_center_left_z";
+        header += " eye_center_right_x eye_center_right_y eye_center_right_z";
+        header += " global_time";
 
         if (!fi.Exists)
         {
@@ -34,11 +42,19 @@ public class OutputResult
         }
     }
 
-    public static void writeResult(string fileName)
+    public static void writeResult(string fileName, ExperimentData exData)
     {
         string filePath = Application.dataPath + "/Results/" + fileName;
         FileInfo fi = new FileInfo(filePath);
-        string dataRow = "End of file";
+        string dataRow = "";
+        dataRow += $"{exData.eyeTrackingData.localGazeDirection.x} {exData.eyeTrackingData.localGazeDirection.y} {exData.eyeTrackingData.localGazeDirection.z}";
+        dataRow += $" {exData.eyeTrackingData.gazeDistance}";
+        dataRow += $" {exData.eyeTrackingData.lastConfidence}";
+        dataRow += $" {exData.eyeTrackingData.gazeNormalLeft.x} {exData.eyeTrackingData.gazeNormalLeft.y} {exData.eyeTrackingData.gazeNormalLeft.z}";
+        dataRow += $" {exData.eyeTrackingData.gazeNormalRight.x} {exData.eyeTrackingData.gazeNormalRight.y} {exData.eyeTrackingData.gazeNormalRight.z}";
+        dataRow += $" {exData.eyeTrackingData.eyeCenterLeft.x} {exData.eyeTrackingData.eyeCenterLeft.y} {exData.eyeTrackingData.eyeCenterLeft.z}";
+        dataRow += $" {exData.eyeTrackingData.eyeCenterRight.x} {exData.eyeTrackingData.eyeCenterRight.y} {exData.eyeTrackingData.eyeCenterRight.z}";
+        dataRow += $" {exData.globalTime}";
 
         using (StreamWriter writer = fi.AppendText())
         {
