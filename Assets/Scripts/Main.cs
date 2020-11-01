@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.XR;
 
 public class Main : MonoBehaviour
 {
@@ -26,6 +27,16 @@ public class Main : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Escape))
         {
             Application.Quit();
+        }
+
+        if (Input.GetKeyDown(KeyCode.N))
+        {
+            SwitchCamFix(true);
+        }
+
+        if (Input.GetKeyDown(KeyCode.F))
+        {
+            SwitchCamFix(false);
         }
 
         if (phase == 0)
@@ -78,5 +89,12 @@ public class Main : MonoBehaviour
     void SetupSphere()
     {
         Sphere.SetActive(false);
+    }
+
+    void SwitchCamFix(bool isFixed)
+    {
+        MainCamera.transform.position = new Vector3(0, 0, 0);
+        MainCamera.transform.rotation = Quaternion.Euler(0, 0, 0);
+        XRDevice.DisableAutoXRCameraTracking(MainCamera, isFixed);
     }
 }
