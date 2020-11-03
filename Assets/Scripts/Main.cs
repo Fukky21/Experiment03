@@ -1,25 +1,32 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 using UnityEngine.XR;
+using Valve.VR;
 
 public class Main : MonoBehaviour
-{
+{   
     [Header("Settings")]
     public string fileName; // 拡張子は付けずに指定
 
     public Camera MainCamera;
-    public GameObject Sphere;
-
+    public SteamVR_Input_Sources HandType;
+    public SteamVR_Action_Boolean RespUp;
+    public SteamVR_Action_Boolean RespDown;
+    public SteamVR_Action_Boolean RespTrigger;
+    public Text GuideText;
+    public CommonConfig config;
+    public GameObject FixationPoint;
     OutputResult outputResult;
     private int phase = 0;
-    private float globalTime = 0f;
+    private float globalTime = 0;
 
     void Start()
     {
+        config = new CommonConfig();
         outputResult = new OutputResult(fileName);
         SetupCamera();
-        SetupSphere();
     }
 
     void Update()
@@ -29,42 +36,46 @@ public class Main : MonoBehaviour
             Application.Quit();
         }
 
-        if (Input.GetKeyDown(KeyCode.N))
-        {
-            SwitchCamFix(true);
-        }
-
-        if (Input.GetKeyDown(KeyCode.F))
-        {
-            SwitchCamFix(false);
-        }
-
         if (phase == 0)
         {
-            // キャリブレーション終了～記録開始準備
+            // キャリブレーション終了～スイングモード選択
             if (Input.GetKeyDown(KeyCode.Space))
             {
                 if (outputResult.initialize() == -1)
                 {
                     Application.Quit();
                 }
-                Sphere.GetComponent<Renderer>().material.color = Color.green;
-                Sphere.SetActive(true);
+                GuideText.text = "Press Up => Free\n\nPress Down => Fix";
+                GuideText.enabled = true;
                 phase++;
             }
         }
         else if (phase == 1)
         {
-            // 記録開始準備～記録開始
-            if (Input.GetKeyDown(KeyCode.S))
+            // スイングモード選択～データ記録開始
+            if (RespUp.GetState(HandType))
             {
-                Sphere.GetComponent<Renderer>().material.color = Color.red;
+                GuideText.enabled = false;
+                FixationPoint.transform.position = new Vector3(0, 0, config.distance);
+                FixationPoint.SetActive(true);
+                PracticeSwingManager.StartSwing(50, 2);
+                SwitchCamFix(false);
+                phase++;
+            }
+
+            if (RespDown.GetState(HandType))
+            {
+                GuideText.enabled = false;
+                FixationPoint.transform.position = new Vector3(0, 0, config.distance);
+                FixationPoint.SetActive(true);
+                // TODO: Fix実装
+                SwitchCamFix(true);
                 phase++;
             }
         }
         else if (phase == 2)
         {
-            // 記録開始～記録終了
+            // データ記録開始～データ記録終了
             outputResult.writeData(
                 PupilLabs.EyeTrackingDataManager.getEyeTrackingData(),
                 new HeadTrackingData(MainCamera.transform),
@@ -72,9 +83,12 @@ public class Main : MonoBehaviour
             );
             globalTime += Time.deltaTime;
 
-            if (Input.GetKeyDown(KeyCode.E))
+            if (RespTrigger.GetState(HandType))
             {
-                Sphere.GetComponent<Renderer>().material.color = Color.black;
+                FixationPoint.SetActive(false);
+                PracticeSwingManager.StopSwing();
+                GuideText.text = "Finish";
+                GuideText.enabled = true;
                 phase++;
             }
         }
@@ -83,12 +97,7 @@ public class Main : MonoBehaviour
     void SetupCamera()
     {
         MainCamera.GetComponent<Camera>().clearFlags = CameraClearFlags.SolidColor;
-        MainCamera.GetComponent<Camera>().backgroundColor = Color.gray;
-    }
-
-    void SetupSphere()
-    {
-        Sphere.SetActive(false);
+        MainCamera.GetComponent<Camera>().backgroundColor = Color.black;
     }
 
     void SwitchCamFix(bool isFixed)
