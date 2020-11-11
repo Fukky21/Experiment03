@@ -1,6 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.XR;
 using Valve.VR;
@@ -16,16 +14,23 @@ public class Main : MonoBehaviour
     public SteamVR_Action_Boolean RespDown;
     public SteamVR_Action_Boolean RespTrigger;
     public Text GuideText;
-    public CommonConfig config;
     public GameObject FixationPoint;
-    OutputResult outputResult;
+    public AudioClip sound;
+    AudioSource audioSource;
     private int phase = 0;
-    private float globalTime = 0;
+    private bool isFreeMode = false;
+    private float time = 0;
+    private float localTime = 0;
+    private bool isMovingToRight = false;
+    private float currentAngle = 0;
+    private string selectModeText = "Press Up => Start Recording in Free mode\n\nPress Down => Start Recording in Fix mode";
+    private string finishRecordingText = "Finish Recording!\n\nPress ESC => Quit App";
 
     void Start()
     {
-        config = new CommonConfig();
-        outputResult = new OutputResult(fileName);
+        audioSource = GetComponent<AudioSource>();
+        PupilLabs.EyeTrackingDataManager.InitializeDataFile(fileName);
+        HeadTrackingDataManager.InitializeDataFile(fileName);
         SetupCamera();
     }
 
@@ -38,72 +43,117 @@ public class Main : MonoBehaviour
 
         if (phase == 0)
         {
-            // キャリブレーション終了～スイングモード選択
+            // キャリブレーション終了後
             if (Input.GetKeyDown(KeyCode.Space))
             {
-                if (outputResult.initialize() == -1)
-                {
-                    Application.Quit();
-                }
-                GuideText.text = "Press Up => Free\n\nPress Down => Fix";
-                GuideText.enabled = true;
+                ChangeGuideText(selectModeText, true);
                 phase++;
             }
         }
         else if (phase == 1)
         {
-            // スイングモード選択～データ記録開始
+            // モード選択中
             if (RespUp.GetState(HandType))
             {
-                GuideText.enabled = false;
-                FixationPoint.transform.position = new Vector3(0, 0, config.distance);
-                FixationPoint.SetActive(true);
-                PracticeSwingManager.StartSwing(50, 2);
-                SwitchCamFix(false);
+                // Free mode
+                ChangeGuideText(null, false);
+                StartupFixationPoint();
+                SwitchCamToFixed(false);
+                PupilLabs.EyeTrackingDataManager.StartRecording();
+                HeadTrackingDataManager.StartRecording();
+                isFreeMode = true;
                 phase++;
             }
 
             if (RespDown.GetState(HandType))
             {
-                GuideText.enabled = false;
-                FixationPoint.transform.position = new Vector3(0, 0, config.distance);
-                FixationPoint.SetActive(true);
-                // TODO: Fix実装
-                SwitchCamFix(true);
+                // Fix mode
+                ChangeGuideText(null, false);
+                StartupFixationPoint();
+                SwitchCamToFixed(true);
+                PupilLabs.EyeTrackingDataManager.StartRecording();
+                HeadTrackingDataManager.StartRecording();
+                isFreeMode = false;
                 phase++;
             }
         }
         else if (phase == 2)
         {
-            // データ記録開始～データ記録終了
-            outputResult.writeData(
-                PupilLabs.EyeTrackingDataManager.getEyeTrackingData(),
-                new HeadTrackingData(MainCamera.transform),
-                globalTime
-            );
-            globalTime += Time.deltaTime;
+            // 記録中
+            Do();
+            time += Time.deltaTime;
 
             if (RespTrigger.GetState(HandType))
             {
+                PupilLabs.EyeTrackingDataManager.StopRecording();
+                HeadTrackingDataManager.StopRecording();
                 FixationPoint.SetActive(false);
-                PracticeSwingManager.StopSwing();
-                GuideText.text = "Finish";
-                GuideText.enabled = true;
+                ChangeGuideText(finishRecordingText, true);
                 phase++;
             }
         }
     }
 
-    void SetupCamera()
+    private void SetupCamera()
     {
         MainCamera.GetComponent<Camera>().clearFlags = CameraClearFlags.SolidColor;
         MainCamera.GetComponent<Camera>().backgroundColor = Color.black;
     }
 
-    void SwitchCamFix(bool isFixed)
+    private void SwitchCamToFixed(bool isFixed)
     {
-        MainCamera.transform.position = new Vector3(0, 0, 0);
+        MainCamera.transform.position = Settings.cameraPosition;
         MainCamera.transform.rotation = Quaternion.Euler(0, 0, 0);
         XRDevice.DisableAutoXRCameraTracking(MainCamera, isFixed);
+    }
+
+    private void ChangeGuideText(string text, bool isEnabled)
+    {
+        GuideText.text = text;
+        GuideText.enabled = isEnabled;
+    }
+
+    private void StartupFixationPoint()
+    {
+        FixationPoint.transform.position = Settings.fixationPointPosition;
+        FixationPoint.SetActive(true);
+    }
+
+    private void Do()
+    {
+        if (isFreeMode)
+        {
+            if (isMovingToRight)
+            {
+                FixationPoint.transform.RotateAround(Settings.cameraPosition, Vector3.up, Settings.movingSpeed() * Time.deltaTime);
+                currentAngle += Settings.movingSpeed() * Time.deltaTime;
+
+                if (currentAngle > Settings.movingAngle)
+                {
+                    audioSource.PlayOneShot(sound);
+                    isMovingToRight = false;
+                }
+            }
+            else
+            {
+                FixationPoint.transform.RotateAround(Settings.cameraPosition, Vector3.up, -Settings.movingSpeed() * Time.deltaTime);
+                currentAngle -= Settings.movingSpeed() * Time.deltaTime;
+
+                if (currentAngle < -Settings.movingAngle)
+                {
+                    audioSource.PlayOneShot(sound);
+                    isMovingToRight = true;
+                }
+            }
+        }
+        else
+        {
+            localTime += Time.deltaTime;
+            if (localTime > Settings.movingOneWayTime)
+            {
+                audioSource.PlayOneShot(sound);
+                localTime = 0;
+            }
+        }
     }
 }
