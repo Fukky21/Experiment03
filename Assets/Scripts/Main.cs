@@ -15,6 +15,7 @@ public class Main : MonoBehaviour
     public SteamVR_Action_Boolean RespTrigger;
     public Text GuideText;
     public GameObject FixationPoint;
+    public GameObject MovePoint;
     public AudioClip sound;
     AudioSource audioSource;
     private int phase = 0;
@@ -57,8 +58,7 @@ public class Main : MonoBehaviour
             {
                 // Free mode
                 ChangeGuideText(null, false);
-                StartupFixationPoint();
-                SwitchCamToFixed(false);
+                MovePoint.SetActive(true);
                 PupilLabs.EyeTrackingDataManager.StartRecording();
                 HeadTrackingDataManager.StartRecording();
                 isFreeMode = true;
@@ -69,8 +69,7 @@ public class Main : MonoBehaviour
             {
                 // Fix mode
                 ChangeGuideText(null, false);
-                StartupFixationPoint();
-                SwitchCamToFixed(true);
+                FixationPoint.SetActive(true);
                 PupilLabs.EyeTrackingDataManager.StartRecording();
                 HeadTrackingDataManager.StartRecording();
                 isFreeMode = false;
@@ -87,6 +86,7 @@ public class Main : MonoBehaviour
             {
                 PupilLabs.EyeTrackingDataManager.StopRecording();
                 HeadTrackingDataManager.StopRecording();
+                MovePoint.SetActive(false);
                 FixationPoint.SetActive(false);
                 ChangeGuideText(finishRecordingText, true);
                 phase++;
@@ -100,23 +100,10 @@ public class Main : MonoBehaviour
         MainCamera.GetComponent<Camera>().backgroundColor = Color.black;
     }
 
-    private void SwitchCamToFixed(bool isFixed)
-    {
-        MainCamera.transform.position = Settings.cameraPosition;
-        MainCamera.transform.rotation = Quaternion.Euler(0, 0, 0);
-        XRDevice.DisableAutoXRCameraTracking(MainCamera, isFixed);
-    }
-
     private void ChangeGuideText(string text, bool isEnabled)
     {
         GuideText.text = text;
         GuideText.enabled = isEnabled;
-    }
-
-    private void StartupFixationPoint()
-    {
-        FixationPoint.transform.position = Settings.fixationPointPosition;
-        FixationPoint.SetActive(true);
     }
 
     private void Do()
@@ -125,7 +112,7 @@ public class Main : MonoBehaviour
         {
             if (isMovingToRight)
             {
-                FixationPoint.transform.RotateAround(Settings.cameraPosition, Vector3.up, Settings.movingSpeed() * Time.deltaTime);
+                MovePoint.transform.RotateAround(Settings.cameraPosition, Vector3.up, Settings.movingSpeed() * Time.deltaTime);
                 currentAngle += Settings.movingSpeed() * Time.deltaTime;
 
                 if (currentAngle > Settings.movingAngle)
@@ -136,7 +123,7 @@ public class Main : MonoBehaviour
             }
             else
             {
-                FixationPoint.transform.RotateAround(Settings.cameraPosition, Vector3.up, -Settings.movingSpeed() * Time.deltaTime);
+                MovePoint.transform.RotateAround(Settings.cameraPosition, Vector3.up, -Settings.movingSpeed() * Time.deltaTime);
                 currentAngle -= Settings.movingSpeed() * Time.deltaTime;
 
                 if (currentAngle < -Settings.movingAngle)
