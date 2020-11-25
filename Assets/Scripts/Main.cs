@@ -229,7 +229,7 @@ public class Main : MonoBehaviour
 
         experimentDataFilePath = Application.dataPath + $"/Results/{fileName}_ex_data.txt";
         FileInfo fi = new FileInfo(experimentDataFilePath);
-        string header = "trial ratio top_belt_move_to_left resp_up presentation_start_time";
+        string header = "trial ratio top_belt_move_to_right resp_up presentation_start_time";
         using (StreamWriter sw = fi.CreateText())
         {
             sw.WriteLine(header);
