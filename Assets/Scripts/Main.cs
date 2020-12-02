@@ -44,6 +44,9 @@ public class Main : MonoBehaviour
     private string selectModeText = "Press Up: Start Practice\n\nPress Down: Start Experiment";
     private string finishRecordingText = "Finish\n\nPress ESC: Quit App";
 
+    Transform topBeltTransform;
+    Transform bottomBeltTransform;
+
     void Start()
     {
         audioSource = GetComponent<AudioSource>();
@@ -51,6 +54,8 @@ public class Main : MonoBehaviour
         topBeltMoveToRights = new List<bool>();
         respUps = new List<bool>();
         onsetTimes = new List<float>();
+        topBeltTransform = TopBelt.transform;
+        bottomBeltTransform = BottomBelt.transform;
         SetupCamera();
     }
 
@@ -335,13 +340,13 @@ public class Main : MonoBehaviour
         {
             if (topBeltMoveToRight)
             {
-                TopBelt.transform.Translate(Tan(beltSpeedToRight[currentTrial - 1]) * Time.deltaTime, 0, 0);
-                BottomBelt.transform.Translate(-Tan(beltSpeedToLeft[currentTrial - 1]) * Time.deltaTime, 0, 0);
+                topBeltTransform.Translate(Tan(beltSpeedToRight[currentTrial - 1]) * Time.deltaTime, 0, 0);
+                bottomBeltTransform.Translate(-Tan(beltSpeedToLeft[currentTrial - 1]) * Time.deltaTime, 0, 0);
             }
             else
             {
-                TopBelt.transform.Translate(-Tan(beltSpeedToLeft[currentTrial - 1]) * Time.deltaTime, 0, 0);
-                BottomBelt.transform.Translate(Tan(beltSpeedToRight[currentTrial - 1]) * Time.deltaTime, 0, 0);
+                topBeltTransform.Translate(-Tan(beltSpeedToLeft[currentTrial - 1]) * Time.deltaTime, 0, 0);
+                bottomBeltTransform.Translate(Tan(beltSpeedToRight[currentTrial - 1]) * Time.deltaTime, 0, 0);
             }
             localTime += Time.deltaTime;
             if (localTime > Settings.stimulusPresentationTime)
@@ -379,8 +384,8 @@ public class Main : MonoBehaviour
             else
             {
                 // 初期化処理
-                TopBelt.transform.localPosition = Settings.topBeltPosition;
-                BottomBelt.transform.localPosition = Settings.bottomBeltPosition;
+                topBeltTransform.localPosition = Settings.topBeltPosition;
+                bottomBeltTransform.localPosition = Settings.bottomBeltPosition;
                 localTime = 0;
                 currentShotCount = 0;
                 currentTrial++;
