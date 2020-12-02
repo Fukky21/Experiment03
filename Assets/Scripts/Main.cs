@@ -22,20 +22,23 @@ public class Main : MonoBehaviour
     public GameObject BottomBelt;
     public AudioClip sound;
     AudioSource audioSource;
-    private string experimentDataFilePath;
-    private static StreamWriter experimentDataFileWriter;
+    System.Random rnd;
     private int phase = 0;
     private bool isPracticeMode = false;
     private int step = 0;
     private int currentTrial = 1;
-    private int shotCount = 0;
+    private int currentShotCount = 0;
+    private bool topBeltMoveToRight;
+    private int addedShotCount = 0;
     private double[] beltSpeedRatio;
     private float[] beltSpeedToLeft;
     private float[] beltSpeedToRight;
-    private bool[] topBeltMoveToRight;
+    private List<bool> topBeltMoveToRights;
+    private List<bool> respUps;
+    private List<float> onsetTimes;
     private float time = 0;
     private float localTime = 0;
-    private float stimulusPresentationStartTime = 0;
+    private float onsetTime = 0;
     private bool isMovingToRight = false;
     private float currentAngle = 0;
     private string selectModeText = "Press Up: Start Practice\n\nPress Down: Start Experiment";
@@ -44,8 +47,10 @@ public class Main : MonoBehaviour
     void Start()
     {
         audioSource = GetComponent<AudioSource>();
-        PupilLabs.EyeTrackingDataManager.InitializeDataFile(fileName);
-        HeadTrackingDataManager.InitializeDataFile(fileName);
+        rnd = new System.Random();
+        topBeltMoveToRights = new List<bool>();
+        respUps = new List<bool>();
+        onsetTimes = new List<float>();
         SetupCamera();
     }
 
@@ -53,6 +58,9 @@ public class Main : MonoBehaviour
     {
         if (Input.GetKeyDown(KeyCode.Escape))
         {
+            PupilLabs.EyeTrackingDataManager.StopRecording(fileName);
+            HeadTrackingDataManager.StopRecording(fileName);
+            WriteData();
             Application.Quit();
         }
 
@@ -70,23 +78,21 @@ public class Main : MonoBehaviour
             {
                 // Start Practice
                 MovingPoint.SetActive(true);
-                PupilLabs.EyeTrackingDataManager.StartRecording();
-                HeadTrackingDataManager.StartRecording();
                 isPracticeMode = true;
                 ChangeGuideText(null, false);
+                PupilLabs.EyeTrackingDataManager.StartRecording();
+                HeadTrackingDataManager.StartRecording();
                 phase++;
             }
 
             if (RespDown.GetState(HandType))
             {
                 // Start Experiment
-                InitializeExprimentDataFile();
                 SetupParameters();
-                experimentDataFileWriter = new StreamWriter(experimentDataFilePath, true);
-                PupilLabs.EyeTrackingDataManager.StartRecording();
-                HeadTrackingDataManager.StartRecording();
                 isPracticeMode = false;
                 ChangeGuideText(trialText(currentTrial), true);
+                PupilLabs.EyeTrackingDataManager.StartRecording();
+                HeadTrackingDataManager.StartRecording();
                 phase++;
             }
         }
@@ -99,8 +105,8 @@ public class Main : MonoBehaviour
                 // トリガーを引いたら終了
                 if (RespTrigger.GetState(HandType))
                 {
-                    PupilLabs.EyeTrackingDataManager.StopRecording();
-                    HeadTrackingDataManager.StopRecording();
+                    PupilLabs.EyeTrackingDataManager.StopRecording(fileName);
+                    HeadTrackingDataManager.StopRecording(fileName);
                     MovingPoint.SetActive(false);
                     FixationPoint.SetActive(false);
                     ChangeGuideText(finishRecordingText, true);
@@ -111,12 +117,12 @@ public class Main : MonoBehaviour
             {
                 DoExperiment();
                 time += Time.deltaTime;
-                // 規定のトライアル数を終えたとき、stepが6になる
+                // 規定のトライアル数を終えたとき、stepの値は6になる
                 if (step == 6)
                 {
-                    PupilLabs.EyeTrackingDataManager.StopRecording();
-                    HeadTrackingDataManager.StopRecording();
-                    experimentDataFileWriter.Close();
+                    PupilLabs.EyeTrackingDataManager.StopRecording(fileName);
+                    HeadTrackingDataManager.StopRecording(fileName);
+                    WriteData();
                     ChangeGuideText(finishRecordingText, true);
                     phase++;
                 }
@@ -140,7 +146,6 @@ public class Main : MonoBehaviour
 
     Type[] FisherYates<Type>(Type[] arr)
     {
-        System.Random rnd = new System.Random();
         int n = arr.Length;
         for (int i = n - 1; i > 0; i--)
         {
@@ -180,15 +185,13 @@ public class Main : MonoBehaviour
         MainCamera.GetComponent<Camera>().backgroundColor = Color.black;
     }
 
-    // Setup beltSpeedRatio, beltSpeedToLeft, beltSpeedToRight, topBeltMoveToRight
+    // Setup beltSpeedRatio, beltSpeedToLeft, beltSpeedToRight
     private void SetupParameters()
     {
-        System.Random rnd = new System.Random();
         double[] tmpSpeedRatio = new double[Settings.nTrials()];
         beltSpeedRatio = new double[Settings.nTrials()];
         beltSpeedToLeft = new float[Settings.nTrials()];
         beltSpeedToRight = new float[Settings.nTrials()];
-        topBeltMoveToRight = new bool[Settings.nTrials()];
 
         for (int i = 0; i < Settings.repeat; i++)
         {
@@ -204,20 +207,9 @@ public class Main : MonoBehaviour
             beltSpeedToLeft[i] = ConvertRatioToSpeed(beltSpeedRatio[i])["speedToLeft"];
             beltSpeedToRight[i] = ConvertRatioToSpeed(beltSpeedRatio[i])["speedToRight"];
         }
-        for (int i = 0; i < Settings.nTrials(); i++)
-        {
-            if (rnd.NextDouble() < 0.5)
-            {
-                topBeltMoveToRight[i] = false;
-            }
-            else
-            {
-                topBeltMoveToRight[i] = true;
-            }
-        }
     }
 
-    private void InitializeExprimentDataFile()
+    private void WriteData()
     {
         // Resultsフォルダが存在しないときは作成する
         string folderPath = Application.dataPath + "/Results";
@@ -226,24 +218,20 @@ public class Main : MonoBehaviour
             DirectoryInfo di = new DirectoryInfo(folderPath);
             di.Create();
         }
-
-        experimentDataFilePath = Application.dataPath + $"/Results/{fileName}_ex_data.txt";
-        FileInfo fi = new FileInfo(experimentDataFilePath);
-        string header = "trial ratio top_belt_move_to_right resp_up presentation_start_time";
+        string filePath = Application.dataPath + $"/Results/{fileName}_ex_data.txt";
+        FileInfo fi = new FileInfo(filePath);
+        string header = "trial ratio top_belt_move_to_right resp_up onset_time";
         using (StreamWriter sw = fi.CreateText())
         {
             sw.WriteLine(header);
+            for (int i = 0; i < onsetTimes.Count; i++)
+            {
+                string dataTxt = $"{i+1} {beltSpeedRatio[i]} {ConvertBoolToInt(topBeltMoveToRights[i])}";
+                dataTxt += $" {ConvertBoolToInt(respUps[i])} {onsetTimes[i]}";
+                sw.WriteLine(dataTxt);
+            }
             sw.Close();
         }
-    }
-
-    private async void WriteExData(bool respUp)
-    {
-        string dataRow = "";
-        dataRow += $"{currentTrial} {beltSpeedRatio[currentTrial - 1]}";
-        dataRow += $" {ConvertBoolToInt(topBeltMoveToRight[currentTrial - 1])} {ConvertBoolToInt(respUp)}";
-        dataRow += $" {stimulusPresentationStartTime}";
-        await experimentDataFileWriter.WriteLineAsync(dataRow);
     }
 
     private void ChangeGuideText(string text, bool isEnabled)
@@ -291,6 +279,30 @@ public class Main : MonoBehaviour
             {
                 ChangeGuideText(null, false);
                 FixationPoint.SetActive(true);
+ 
+                // addedShotCountを決定
+                if (rnd.NextDouble() < 0.3333)
+                {
+                    addedShotCount = 1;
+                }
+                else if (rnd.NextDouble() < 0.6666)
+                {
+                    addedShotCount = 2;
+                }
+                else
+                {
+                    addedShotCount = 3;
+                }
+                // topBeltMoveToRightを決定
+                if (rnd.NextDouble() < 0.5)
+                {
+                    topBeltMoveToRight = false;
+                }
+                else
+                {
+                    topBeltMoveToRight = true;
+                }
+
                 step++;
             }
         }
@@ -301,7 +313,7 @@ public class Main : MonoBehaviour
             {
                 audioSource.PlayOneShot(sound);
                 localTime = 0;
-                if (++shotCount == Settings.shotCount)
+                if (++currentShotCount == Settings.shotCount + addedShotCount)
                 {
                     step++;
                 }
@@ -312,7 +324,7 @@ public class Main : MonoBehaviour
             localTime += Time.deltaTime;
             if (localTime > (Settings.movingOneWayTime - Settings.stimulusPresentationTime) / 2)
             {
-                stimulusPresentationStartTime = time;
+                onsetTime = time;
                 localTime = 0;
                 TopBelt.SetActive(true);
                 BottomBelt.SetActive(true);
@@ -321,7 +333,7 @@ public class Main : MonoBehaviour
         }
         else if (step == 3) // 刺激提示中
         {
-            if (topBeltMoveToRight[currentTrial - 1])
+            if (topBeltMoveToRight)
             {
                 TopBelt.transform.Translate(Tan(beltSpeedToRight[currentTrial - 1]) * Time.deltaTime, 0, 0);
                 BottomBelt.transform.Translate(-Tan(beltSpeedToLeft[currentTrial - 1]) * Time.deltaTime, 0, 0);
@@ -344,13 +356,17 @@ public class Main : MonoBehaviour
         {
             if (RespUp.GetState(HandType))
             {
-                WriteExData(true);
+                topBeltMoveToRights.Add(topBeltMoveToRight);
+                respUps.Add(true);
+                onsetTimes.Add(onsetTime);
                 step++;
             }
 
             if (RespDown.GetState(HandType))
             {
-                WriteExData(false);
+                topBeltMoveToRights.Add(topBeltMoveToRight);
+                respUps.Add(false);
+                onsetTimes.Add(onsetTime);
                 step++;
             }
         }
@@ -366,7 +382,7 @@ public class Main : MonoBehaviour
                 TopBelt.transform.localPosition = Settings.topBeltPosition;
                 BottomBelt.transform.localPosition = Settings.bottomBeltPosition;
                 localTime = 0;
-                shotCount = 0;
+                currentShotCount = 0;
                 currentTrial++;
                 ChangeGuideText(trialText(currentTrial), true);
                 step = 0;

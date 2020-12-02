@@ -14,7 +14,7 @@ public class Settings
         return movingAngle * 2 / movingOneWayTime; // [deg/s]
     }
 
-    public static int repeat = 10;
+    public static int repeat = 3;
     public static double[] ratio = new double[] {-0.5, -0.4, -0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3, 0.4, 0.5};
     //public static double[] ratio = new double[] {-0.4, -0.32, -0.24, -0.16, -0.08, 0, 0.08, 0.16, 0.24, 0.32, 0.4};
     //public static double[] ratio = new double[] {-1.0, -0.8, -0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8, 1.0};
@@ -25,7 +25,7 @@ public class Settings
         return ratio.Length * repeat;
     }
 
-    public static int shotCount = 6; // この回数分だけ反復した後に刺激が提示される
+    public static int shotCount = 4; // この回数分だけ反復した後に刺激が提示される
     //public static int shotCount = 1;
     public static float beltBaseSpeed = 12.0f; // [deg/s]
 }

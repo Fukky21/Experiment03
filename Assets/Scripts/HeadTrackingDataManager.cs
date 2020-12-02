@@ -1,15 +1,16 @@
-﻿using System.IO;
+﻿using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 
 public class HeadTrackingDataManager : MonoBehaviour
 {
     public Camera MainCamera;
     private static bool isRecording;
-    private static string filePath;
-    private static StreamWriter writer;
     private float time;
+    private static List<Vector3> rotations;
+    private static List<float> times;
 
-    public static void InitializeDataFile(string fileName)
+    public static void WriteData(string fileName)
     {
         // Resultsフォルダが存在しないときは作成する
         string folderPath = Application.dataPath + "/Results";
@@ -18,52 +19,39 @@ public class HeadTrackingDataManager : MonoBehaviour
             DirectoryInfo di = new DirectoryInfo(folderPath);
             di.Create();
         }
-
-        filePath = Application.dataPath + $"/Results/{fileName}_head_data.txt";
+        string filePath = Application.dataPath + $"/Results/{fileName}_head_data.txt";
         FileInfo fi = new FileInfo(filePath);
-        string header = "";
-        header += "pos_x pos_y pos_z";
-        header += " ro_x ro_y ro_z";
-        header += " time";
-
+        string header = "ro_y time";
         using (StreamWriter sw = fi.CreateText())
         {
             sw.WriteLine(header);
+            for (int i = 0; i < times.Count; i++)
+            {
+                string dataTxt = $"{TransformAngle180(rotations[i].y)} {times[i]}";
+                sw.WriteLine(dataTxt);
+            }
             sw.Close();
         }
     }
 
     public static void StartRecording()
     {
-        writer = new StreamWriter(filePath, true);
         isRecording = true;
     }
 
-    public static void StopRecording()
+    public static void StopRecording(string fileName)
     {
         isRecording = false;
-        writer.Close();
-    }
-
-    private async void WriteData()
-    {
-        Transform transform =  MainCamera.transform;
-        string dataRow = "";
-        dataRow += $"{transform.position.x} {transform.position.y} {transform.position.z}";
-        dataRow += $" {TransformAngle180(transform.eulerAngles.x)} {TransformAngle180(transform.eulerAngles.y)} {TransformAngle180(transform.eulerAngles.z)}";
-        dataRow += $" {time}";
-
-        await writer.WriteLineAsync(dataRow);
+        WriteData(fileName);
     }
 
     // [0, 360]degから[-180, 180]degへ変換する
-    private float TransformAngle180(float angle)
+    private static float TransformAngle180(float angle)
     {
         if (angle > 180)
         {
             return angle - 360;
         }
-
         return angle;
     } 
 
@@ -71,6 +59,8 @@ public class HeadTrackingDataManager : MonoBehaviour
     {
         time = 0;
         isRecording = false;
+        rotations = new List<Vector3>();
+        times = new List<float>();
     }
 
 
@@ -78,7 +68,8 @@ public class HeadTrackingDataManager : MonoBehaviour
     {
         if (isRecording)
         {
-            WriteData();
+            rotations.Add(MainCamera.transform.eulerAngles);
+            times.Add(time);
             time += Time.deltaTime;
         }
     }
