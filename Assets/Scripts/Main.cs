@@ -17,6 +17,7 @@ public class Main : MonoBehaviour
     public SteamVR_Action_Boolean RespTrigger;
     public Text GuideText;
     public GameObject FixationPoint;
+    public GameObject FixationLine;
     public GameObject MovingPoint;
     public GameObject TopBelt;
     public GameObject BottomBelt;
@@ -114,6 +115,7 @@ public class Main : MonoBehaviour
                     HeadTrackingDataManager.StopRecording(fileName);
                     MovingPoint.SetActive(false);
                     FixationPoint.SetActive(false);
+                    FixationLine.SetActive(false);
                     ChangeGuideText(finishRecordingText, true);
                     phase++;
                 }
@@ -284,6 +286,7 @@ public class Main : MonoBehaviour
             {
                 ChangeGuideText(null, false);
                 FixationPoint.SetActive(true);
+                //FixationLine.SetActive(true);
  
                 // addedShotCountを決定
                 if (rnd.NextDouble() < 0.3333)
@@ -354,6 +357,7 @@ public class Main : MonoBehaviour
                 TopBelt.SetActive(false);
                 BottomBelt.SetActive(false);
                 FixationPoint.SetActive(false);
+                FixationLine.SetActive(false);
                 step++;
             }
         }
