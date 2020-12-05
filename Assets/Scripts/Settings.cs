@@ -25,7 +25,7 @@ public class Settings
         return ratio.Length * repeat;
     }
 
-    public static int shotCount = 4; // この回数分だけ反復した後に刺激が提示される
+    public static int shotCount = 4; // ベースとなる反復回数
     //public static int shotCount = 1;
     public static float beltBaseSpeed = 12.0f; // [deg/s]
 }
