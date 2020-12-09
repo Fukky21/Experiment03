@@ -9,6 +9,7 @@ public class Main : MonoBehaviour
 {   
     [Header("Settings")]
     public string fileName; // 拡張子は付けずに指定
+    public bool isFixationPointMode;
 
     public Camera MainCamera;
     public SteamVR_Input_Sources HandType;
@@ -18,32 +19,28 @@ public class Main : MonoBehaviour
     public Text GuideText;
     public GameObject FixationPoint;
     public GameObject FixationLine;
-    public GameObject MovingPoint;
     public GameObject TopBelt;
     public GameObject BottomBelt;
     public AudioClip sound;
     AudioSource audioSource;
     System.Random rnd;
     private int phase = 0;
-    private bool isPracticeMode = false;
     private int step = 0;
     private int currentTrial = 1;
+    private double currentRatio;
+    private float currentBeltSpeedToRight;
+    private float currentBeltSpeedToLeft;
+    private int currentCorrect = 0;
     private int currentShotCount = 0;
     private bool topBeltMoveToRight;
     private int addedShotCount = 0;
-    private double[] beltSpeedRatio;
-    private float[] beltSpeedToLeft;
-    private float[] beltSpeedToRight;
+    private List<double> ratios;
     private List<bool> topBeltMoveToRights;
     private List<bool> respUps;
     private List<float> onsetTimes;
     private float time = 0;
     private float localTime = 0;
     private float onsetTime = 0;
-    private bool isMovingToRight = false;
-    private float currentAngle = 0;
-    private string selectModeText = "Press Up: Start Practice\n\nPress Down: Start Experiment";
-    private string finishRecordingText = "Finish\n\nPress ESC: Quit App";
 
     Transform topBeltTransform;
     Transform bottomBeltTransform;
@@ -51,7 +48,9 @@ public class Main : MonoBehaviour
     void Start()
     {
         audioSource = GetComponent<AudioSource>();
+        currentRatio = Settings.initialRatio;
         rnd = new System.Random();
+        ratios = new List<double>();
         topBeltMoveToRights = new List<bool>();
         respUps = new List<bool>();
         onsetTimes = new List<float>();
@@ -72,67 +71,26 @@ public class Main : MonoBehaviour
 
         if (phase == 0) // キャリブレーション終了後
         {
-            if (Input.GetKeyDown(KeyCode.Space))
+            if (RespUp.GetState(HandType) || RespDown.GetState(HandType))
             {
-                ChangeGuideText(selectModeText, true);
-                phase++;
-            }
-        }
-        else if (phase == 1)　// モード選択中
-        {
-            if (RespUp.GetState(HandType))
-            {
-                // Start Practice
-                MovingPoint.SetActive(true);
-                isPracticeMode = true;
-                ChangeGuideText(null, false);
-                PupilLabs.EyeTrackingDataManager.StartRecording();
-                HeadTrackingDataManager.StartRecording();
-                phase++;
-            }
-
-            if (RespDown.GetState(HandType))
-            {
-                // Start Experiment
-                SetupParameters();
-                isPracticeMode = false;
                 ChangeGuideText(trialText(currentTrial), true);
                 PupilLabs.EyeTrackingDataManager.StartRecording();
                 HeadTrackingDataManager.StartRecording();
                 phase++;
             }
         }
-        else if (phase == 2) // 記録中
+        else if (phase == 1) // 記録中
         {
-            if (isPracticeMode)
+            DoExperiment();
+            time += Time.deltaTime;
+            // 規定のトライアル数を終えたとき、stepの値は6になる
+            if (step == 6)
             {
-                DoPractice();
-                time += Time.deltaTime;
-                // トリガーを引いたら終了
-                if (RespTrigger.GetState(HandType))
-                {
-                    PupilLabs.EyeTrackingDataManager.StopRecording(fileName);
-                    HeadTrackingDataManager.StopRecording(fileName);
-                    MovingPoint.SetActive(false);
-                    FixationPoint.SetActive(false);
-                    FixationLine.SetActive(false);
-                    ChangeGuideText(finishRecordingText, true);
-                    phase++;
-                }
-            }
-            else
-            {
-                DoExperiment();
-                time += Time.deltaTime;
-                // 規定のトライアル数を終えたとき、stepの値は6になる
-                if (step == 6)
-                {
-                    PupilLabs.EyeTrackingDataManager.StopRecording(fileName);
-                    HeadTrackingDataManager.StopRecording(fileName);
-                    WriteData();
-                    ChangeGuideText(finishRecordingText, true);
-                    phase++;
-                }
+                PupilLabs.EyeTrackingDataManager.StopRecording(fileName);
+                HeadTrackingDataManager.StopRecording(fileName);
+                WriteData();
+                ChangeGuideText(finishText(currentRatio), true);
+                phase++;
             }
         }
     }
@@ -192,30 +150,6 @@ public class Main : MonoBehaviour
         MainCamera.GetComponent<Camera>().backgroundColor = Color.black;
     }
 
-    // Setup beltSpeedRatio, beltSpeedToLeft, beltSpeedToRight
-    private void SetupParameters()
-    {
-        double[] tmpSpeedRatio = new double[Settings.nTrials()];
-        beltSpeedRatio = new double[Settings.nTrials()];
-        beltSpeedToLeft = new float[Settings.nTrials()];
-        beltSpeedToRight = new float[Settings.nTrials()];
-
-        for (int i = 0; i < Settings.repeat; i++)
-        {
-            for (int j = 0; j < Settings.ratio.Length; j++)
-            {
-                tmpSpeedRatio[Settings.ratio.Length * i + j] = Settings.ratio[j];
-            }
-        }
-        Array.Copy(tmpSpeedRatio, beltSpeedRatio, tmpSpeedRatio.Length);
-        beltSpeedRatio = FisherYates(beltSpeedRatio);
-        for (int i = 0; i < beltSpeedRatio.Length; i++)
-        {
-            beltSpeedToLeft[i] = ConvertRatioToSpeed(beltSpeedRatio[i])["speedToLeft"];
-            beltSpeedToRight[i] = ConvertRatioToSpeed(beltSpeedRatio[i])["speedToRight"];
-        }
-    }
-
     private void WriteData()
     {
         // Resultsフォルダが存在しないときは作成する
@@ -233,7 +167,7 @@ public class Main : MonoBehaviour
             sw.WriteLine(header);
             for (int i = 0; i < onsetTimes.Count; i++)
             {
-                string dataTxt = $"{i+1} {beltSpeedRatio[i]} {ConvertBoolToInt(topBeltMoveToRights[i])}";
+                string dataTxt = $"{i+1} {ratios[i]} {ConvertBoolToInt(topBeltMoveToRights[i])}";
                 dataTxt += $" {ConvertBoolToInt(respUps[i])} {onsetTimes[i]}";
                 sw.WriteLine(dataTxt);
             }
@@ -249,33 +183,12 @@ public class Main : MonoBehaviour
 
     private string trialText(int currentTrial)
     {
-        return $"{currentTrial}/{Settings.nTrials()}";
+        return $"{currentTrial}/{Settings.trials}";
     }
 
-    private void DoPractice()
+    private string finishText(double currentRatio)
     {
-        if (isMovingToRight)
-        {
-            MovingPoint.transform.RotateAround(Settings.cameraPosition, Vector3.up, Settings.movingSpeed() * Time.deltaTime);
-            currentAngle += Settings.movingSpeed() * Time.deltaTime;
-
-            if (currentAngle > Settings.movingAngle)
-            {
-                audioSource.PlayOneShot(sound);
-                isMovingToRight = false;
-            }
-        }
-        else
-        {
-            MovingPoint.transform.RotateAround(Settings.cameraPosition, Vector3.up, -Settings.movingSpeed() * Time.deltaTime);
-            currentAngle -= Settings.movingSpeed() * Time.deltaTime;
-
-            if (currentAngle < -Settings.movingAngle)
-            {
-                audioSource.PlayOneShot(sound);
-                isMovingToRight = true;
-            }
-        }
+        return $"Finish!\n\nLast Ratio: {currentRatio}\n\nQuit: Press ESC";
     }
 
     private void DoExperiment()
@@ -284,24 +197,36 @@ public class Main : MonoBehaviour
         {
             if (RespTrigger.GetState(HandType))
             {
-                ChangeGuideText(null, false);
-                FixationPoint.SetActive(true);
-                //FixationLine.SetActive(true);
- 
-                // addedShotCountを決定
-                if (rnd.NextDouble() < 0.3333)
+                // 次のratio(絶対値)を決定する
+                if (currentCorrect == Settings.consecutiveCorrentAnswers)
+                {
+                    // 規定回数連続で正答した場合は次のstepへ以降する
+                    currentCorrect = 0;
+                    currentRatio = Math.Abs(currentRatio) - Settings.ratioStep;
+                    if (currentRatio < 0)
+                    {
+                        // ここにはほとんど来ないはず
+                        currentRatio = 0;
+                    }
+                }
+                // 次のratioの符号を決定する
+                if (rnd.NextDouble() < 0.5)
+                {
+                    currentRatio = -currentRatio;
+                }
+                // 次のベルトの速度を決定する
+                currentBeltSpeedToLeft = ConvertRatioToSpeed(currentRatio)["speedToLeft"];
+                currentBeltSpeedToRight = ConvertRatioToSpeed(currentRatio)["speedToRight"];
+                // addedShotCountを決定する
+                if (rnd.NextDouble() < 0.5)
                 {
                     addedShotCount = 1;
                 }
-                else if (rnd.NextDouble() < 0.6666)
+                else
                 {
                     addedShotCount = 2;
                 }
-                else
-                {
-                    addedShotCount = 3;
-                }
-                // topBeltMoveToRightを決定
+                // topBeltMoveToRightを決定する
                 if (rnd.NextDouble() < 0.5)
                 {
                     topBeltMoveToRight = false;
@@ -311,6 +236,15 @@ public class Main : MonoBehaviour
                     topBeltMoveToRight = true;
                 }
 
+                ChangeGuideText(null, false);
+                if (isFixationPointMode)
+                {
+                    FixationPoint.SetActive(true);
+                }
+                else
+                {
+                    FixationLine.SetActive(true);
+                }
                 step++;
             }
         }
@@ -343,13 +277,13 @@ public class Main : MonoBehaviour
         {
             if (topBeltMoveToRight)
             {
-                topBeltTransform.Translate(Tan(beltSpeedToRight[currentTrial - 1]) * Time.deltaTime, 0, 0);
-                bottomBeltTransform.Translate(-Tan(beltSpeedToLeft[currentTrial - 1]) * Time.deltaTime, 0, 0);
+                topBeltTransform.Translate(Tan(currentBeltSpeedToRight) * Time.deltaTime, 0, 0);
+                bottomBeltTransform.Translate(-Tan(currentBeltSpeedToLeft) * Time.deltaTime, 0, 0);
             }
             else
             {
-                topBeltTransform.Translate(-Tan(beltSpeedToLeft[currentTrial - 1]) * Time.deltaTime, 0, 0);
-                bottomBeltTransform.Translate(Tan(beltSpeedToRight[currentTrial - 1]) * Time.deltaTime, 0, 0);
+                topBeltTransform.Translate(-Tan(currentBeltSpeedToLeft) * Time.deltaTime, 0, 0);
+                bottomBeltTransform.Translate(Tan(currentBeltSpeedToRight) * Time.deltaTime, 0, 0);
             }
             localTime += Time.deltaTime;
             if (localTime > Settings.stimulusPresentationTime)
@@ -365,6 +299,7 @@ public class Main : MonoBehaviour
         {
             if (RespUp.GetState(HandType))
             {
+                ratios.Add(currentRatio);
                 topBeltMoveToRights.Add(topBeltMoveToRight);
                 respUps.Add(true);
                 onsetTimes.Add(onsetTime);
@@ -373,6 +308,7 @@ public class Main : MonoBehaviour
 
             if (RespDown.GetState(HandType))
             {
+                ratios.Add(currentRatio);
                 topBeltMoveToRights.Add(topBeltMoveToRight);
                 respUps.Add(false);
                 onsetTimes.Add(onsetTime);
@@ -381,12 +317,42 @@ public class Main : MonoBehaviour
         }
         else if (step == 5)
         {
-            if (currentTrial == Settings.nTrials())
+            if (currentTrial == Settings.trials)
             {
+                // 規定のトライアル数を終えたら終了
                 step++;
             }
             else
             {
+                // 応答が正解かどうかチェックする
+                if (currentRatio > 0)
+                {
+                    // 右へ動く刺激の方が速いとき
+                    if (topBeltMoveToRight == respUps[currentTrial - 1])
+                    {
+                        currentCorrect++;
+                    }
+                    else
+                    {
+                        // 間違えていたとき
+                        currentCorrect = 0;
+                        currentRatio = Math.Abs(currentRatio) + Settings.ratioStep;
+                    }
+                }
+                else
+                {
+                    // 左へ動く刺激の方が速いとき
+                    if (topBeltMoveToRight != respUps[currentTrial - 1])
+                    {
+                        currentCorrect++;
+                    }
+                    else
+                    {
+                        // 間違えていたとき
+                        currentCorrect = 0;
+                        currentRatio = Math.Abs(currentRatio) + Settings.ratioStep;
+                    }
+                }
                 // 初期化処理
                 topBeltTransform.localPosition = Settings.topBeltPosition;
                 bottomBeltTransform.localPosition = Settings.bottomBeltPosition;
