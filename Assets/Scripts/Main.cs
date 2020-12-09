@@ -188,7 +188,7 @@ public class Main : MonoBehaviour
 
     private string finishText(double currentRatio)
     {
-        return $"Finish!\n\nLast Ratio: {currentRatio}\n\nQuit: Press ESC";
+        return $"Finish!\n\nLast Ratio: {Math.Abs(currentRatio)}\n\nQuit: Press ESC";
     }
 
     private void DoExperiment()
