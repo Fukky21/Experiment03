@@ -11,10 +11,20 @@ namespace PupilLabs
         private static string filePath;
         private static StreamWriter writer;
         private static bool isRecording;
+        private bool isBinocular;
         private Vector3 gazeNormalLeft;
         private Vector3 gazeNormalRight;
         private float gazeConfidence;
         private float time;
+
+        int ConvertBoolToInt(bool b)
+        {
+            if (b)
+            {
+                return 1;
+            }
+            return 0;
+        }
 
         void OnEnable()
         {
@@ -49,6 +59,15 @@ namespace PupilLabs
 
         void ReceiveGaze(GazeData gazeData)
         {   
+            if (gazeData.MappingContext != GazeData.GazeMappingContext.Binocular)
+            {
+                isBinocular = false;
+            }
+            else
+            {
+                isBinocular = true;
+            }
+
             gazeConfidence = gazeData.Confidence;
 
             if (gazeData.IsEyeDataAvailable(0))
@@ -76,7 +95,7 @@ namespace PupilLabs
             string header = "";
             header += "gaze_normal_left_x gaze_normal_left_y gaze_normal_left_z";
             header += " gaze_normal_right_x gaze_normal_right_y gaze_normal_right_z";
-            header += " gaze_confidence";
+            header += " is_binocular gaze_confidence";
             header += " time";
             using (StreamWriter sw = fi.CreateText())
             {
@@ -90,7 +109,7 @@ namespace PupilLabs
             string data = "";
             data += $"{gazeNormalLeft.x} {gazeNormalLeft.y} {gazeNormalLeft.z}";
             data += $" {gazeNormalRight.x} {gazeNormalRight.y} {gazeNormalRight.z}";
-            data += $" {gazeConfidence}";
+            data += $" {ConvertBoolToInt(isBinocular)} {gazeConfidence}";
             data += $" {time}";
             await writer.WriteLineAsync(data);
         }
@@ -110,6 +129,7 @@ namespace PupilLabs
         void Start()
         {
             time = 0;
+            isBinocular = false;
             isRecording = false;
         }
 
