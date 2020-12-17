@@ -4,13 +4,13 @@ using UnityEngine;
 
 public class HeadTrackingDataManager : MonoBehaviour
 {
-    public Camera MainCamera;
+    public Transform MainCameraTransform;
+    private static string filePath;
+    private static StreamWriter writer;
     private static bool isRecording;
     private float time;
-    private static List<Vector3> rotations;
-    private static List<float> times;
 
-    public static void WriteData(string fileName)
+    public static void InitializeDataFile(string fileName)
     {
         // Resultsフォルダが存在しないときは作成する
         string folderPath = Application.dataPath + "/Results";
@@ -19,30 +19,32 @@ public class HeadTrackingDataManager : MonoBehaviour
             DirectoryInfo di = new DirectoryInfo(folderPath);
             di.Create();
         }
-        string filePath = Application.dataPath + $"/Results/{fileName}_head_data.txt";
+        filePath = Application.dataPath + $"/Results/{fileName}_headdata.txt";
         FileInfo fi = new FileInfo(filePath);
         string header = "ro_y time";
         using (StreamWriter sw = fi.CreateText())
         {
             sw.WriteLine(header);
-            for (int i = 0; i < times.Count; i++)
-            {
-                string dataTxt = $"{TransformAngle180(rotations[i].y)} {times[i]}";
-                sw.WriteLine(dataTxt);
-            }
             sw.Close();
         }
     }
 
+    private async void WriteData()
+    {
+        string data = $"{TransformAngle180(MainCameraTransform.eulerAngles.y)} {time}";
+        await writer.WriteLineAsync(data);
+    }
+
     public static void StartRecording()
     {
+        writer = new StreamWriter(filePath, true);
         isRecording = true;
     }
 
-    public static void StopRecording(string fileName)
+    public static void StopRecording()
     {
         isRecording = false;
-        WriteData(fileName);
+        writer.Close();
     }
 
     // [0, 360]degから[-180, 180]degへ変換する
@@ -59,8 +61,6 @@ public class HeadTrackingDataManager : MonoBehaviour
     {
         time = 0;
         isRecording = false;
-        rotations = new List<Vector3>();
-        times = new List<float>();
     }
 
 
@@ -68,9 +68,8 @@ public class HeadTrackingDataManager : MonoBehaviour
     {
         if (isRecording)
         {
-            rotations.Add(MainCamera.transform.eulerAngles);
-            times.Add(time);
             time += Time.deltaTime;
+            WriteData();
         }
     }
 }

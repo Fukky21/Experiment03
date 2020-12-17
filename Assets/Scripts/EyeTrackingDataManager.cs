@@ -8,13 +8,13 @@ namespace PupilLabs
     {
         public GazeController gazeController;
         private bool isGazing = false;
+        private static string filePath;
+        private static StreamWriter writer;
+        private static bool isRecording;
         private Vector3 gazeNormalLeft;
         private Vector3 gazeNormalRight;
-        private static bool isRecording;
+        private float gazeConfidence;
         private float time;
-        private static List<Vector3> gazeNormalLefts;
-        private static List<Vector3> gazeNormalRights;
-        private static List<float> times;
 
         void OnEnable()
         {
@@ -48,7 +48,9 @@ namespace PupilLabs
         }
 
         void ReceiveGaze(GazeData gazeData)
-        {
+        {   
+            gazeConfidence = gazeData.Confidence;
+
             if (gazeData.IsEyeDataAvailable(0))
             {
                 gazeNormalLeft = gazeData.GazeNormal0;
@@ -60,7 +62,7 @@ namespace PupilLabs
             }
         }
 
-        public static void WriteData(string fileName)
+        public static void InitializeDataFile(string fileName)
         {
             // Resultsフォルダが存在しないときは作成する
             string folderPath = Application.dataPath + "/Results";
@@ -69,49 +71,54 @@ namespace PupilLabs
                 DirectoryInfo di = new DirectoryInfo(folderPath);
                 di.Create();
             }
-            string filePath = Application.dataPath + $"/Results/{fileName}_eye_data.txt";
+            filePath = Application.dataPath + $"/Results/{fileName}_eyedata.txt";
             FileInfo fi = new FileInfo(filePath);
-            string header = "gaze_normal_left_x gaze_normal_right_x time";
+            string header = "";
+            header += "gaze_normal_left_x gaze_normal_left_y gaze_normal_left_z";
+            header += " gaze_normal_right_x gaze_normal_right_y gaze_normal_right_z";
+            header += " gaze_confidence";
+            header += " time";
             using (StreamWriter sw = fi.CreateText())
             {
                 sw.WriteLine(header);
-                for (int i = 0; i < times.Count; i++)
-                {
-                    string dataTxt = $"{gazeNormalLefts[i].x} {gazeNormalRights[i].x} {times[i]}";
-                    sw.WriteLine(dataTxt);
-                }
                 sw.Close();
             }
         }
 
+        private async void WriteData()
+        {
+            string data = "";
+            data += $"{gazeNormalLeft.x} {gazeNormalLeft.y} {gazeNormalLeft.z}";
+            data += $" {gazeNormalRight.x} {gazeNormalRight.y} {gazeNormalRight.z}";
+            data += $" {gazeConfidence}";
+            data += $" {time}";
+            await writer.WriteLineAsync(data);
+        }
+
         public static void StartRecording()
         {
+            writer = new StreamWriter(filePath, true);
             isRecording = true;
         }
 
-        public static void StopRecording(string fileName)
+        public static void StopRecording()
         {
             isRecording = false;
-            WriteData(fileName);
+            writer.Close();
         }
 
         void Start()
         {
             time = 0;
             isRecording = false;
-            gazeNormalLefts = new List<Vector3>();
-            gazeNormalRights = new List<Vector3>();
-            times = new List<float>();
         }
 
         void Update()
         {
             if (isRecording)
             {
-                gazeNormalLefts.Add(gazeNormalLeft);
-                gazeNormalRights.Add(gazeNormalRight);
-                times.Add(time);
                 time += Time.deltaTime;
+                WriteData();
             }
         }
     }

@@ -24,48 +24,45 @@ public class Main : MonoBehaviour
     public AudioClip sound;
     AudioSource audioSource;
     System.Random rnd;
+    private Transform topBeltTransform;
+    private Transform bottomBeltTransform;
+    private string filePath;
+    private StreamWriter writer;
     private int phase = 0;
     private int step = 0;
     private int currentTrial = 1;
     private double currentRatio;
     private float currentBeltSpeedToRight;
     private float currentBeltSpeedToLeft;
+    private bool currentRespUp;
     private int currentCorrect = 0;
     private int currentShotCount = 0;
     private bool topBeltMoveToRight;
     private int addedShotCount = 0;
-    private List<double> ratios;
-    private List<bool> topBeltMoveToRights;
-    private List<bool> respUps;
-    private List<float> onsetTimes;
     private float time = 0;
     private float localTime = 0;
     private float onsetTime = 0;
-
-    Transform topBeltTransform;
-    Transform bottomBeltTransform;
 
     void Start()
     {
         audioSource = GetComponent<AudioSource>();
         currentRatio = Settings.initialRatio;
         rnd = new System.Random();
-        ratios = new List<double>();
-        topBeltMoveToRights = new List<bool>();
-        respUps = new List<bool>();
-        onsetTimes = new List<float>();
         topBeltTransform = TopBelt.transform;
         bottomBeltTransform = BottomBelt.transform;
         SetupCamera();
+        PupilLabs.EyeTrackingDataManager.InitializeDataFile(fileName);
+        HeadTrackingDataManager.InitializeDataFile(fileName);
+        InitializeDataFile();
     }
 
     void Update()
     {
         if (Input.GetKeyDown(KeyCode.Escape))
         {
-            PupilLabs.EyeTrackingDataManager.StopRecording(fileName);
-            HeadTrackingDataManager.StopRecording(fileName);
-            WriteData();
+            PupilLabs.EyeTrackingDataManager.StopRecording();
+            HeadTrackingDataManager.StopRecording();
+            writer.Close();
             Application.Quit();
         }
 
@@ -76,6 +73,7 @@ public class Main : MonoBehaviour
                 ChangeGuideText(trialText(currentTrial), true);
                 PupilLabs.EyeTrackingDataManager.StartRecording();
                 HeadTrackingDataManager.StartRecording();
+                writer = new StreamWriter(filePath, true);
                 phase++;
             }
         }
@@ -86,9 +84,9 @@ public class Main : MonoBehaviour
             // 規定のトライアル数を終えたとき、stepの値は6になる
             if (step == 6)
             {
-                PupilLabs.EyeTrackingDataManager.StopRecording(fileName);
-                HeadTrackingDataManager.StopRecording(fileName);
-                WriteData();
+                PupilLabs.EyeTrackingDataManager.StopRecording();
+                HeadTrackingDataManager.StopRecording();
+                writer.Close();
                 ChangeGuideText(finishText(currentRatio), true);
                 phase++;
             }
@@ -122,6 +120,33 @@ public class Main : MonoBehaviour
         return arr;
     }
 
+    private void InitializeDataFile()
+    {
+        // Resultsフォルダが存在しないときは作成する
+        string folderPath = Application.dataPath + "/Results";
+        if (!Directory.Exists(folderPath))
+        {
+            DirectoryInfo di = new DirectoryInfo(folderPath);
+            di.Create();
+        }
+        filePath = Application.dataPath + $"/Results/{fileName}_exdata.txt";
+        FileInfo fi = new FileInfo(filePath);
+        string header = "trial ratio top_belt_move_to_right resp_up onset_time";
+        using (StreamWriter sw = fi.CreateText())
+        {
+            sw.WriteLine(header);
+            sw.Close();
+        }
+    }
+
+    private async void WriteData()
+    {
+        string data = "";
+        data += $"{currentTrial} {currentRatio} {ConvertBoolToInt(topBeltMoveToRight)}";
+        data += $" {ConvertBoolToInt(currentRespUp)} {onsetTime}";
+        await writer.WriteLineAsync(data);
+    }
+
     Dictionary<string, float> ConvertRatioToSpeed(double ratio)
     {
 
@@ -148,31 +173,6 @@ public class Main : MonoBehaviour
     {
         MainCamera.GetComponent<Camera>().clearFlags = CameraClearFlags.SolidColor;
         MainCamera.GetComponent<Camera>().backgroundColor = Color.black;
-    }
-
-    private void WriteData()
-    {
-        // Resultsフォルダが存在しないときは作成する
-        string folderPath = Application.dataPath + "/Results";
-        if (!Directory.Exists(folderPath))
-        {
-            DirectoryInfo di = new DirectoryInfo(folderPath);
-            di.Create();
-        }
-        string filePath = Application.dataPath + $"/Results/{fileName}_ex_data.txt";
-        FileInfo fi = new FileInfo(filePath);
-        string header = "trial ratio top_belt_move_to_right resp_up onset_time";
-        using (StreamWriter sw = fi.CreateText())
-        {
-            sw.WriteLine(header);
-            for (int i = 0; i < onsetTimes.Count; i++)
-            {
-                string dataTxt = $"{i+1} {ratios[i]} {ConvertBoolToInt(topBeltMoveToRights[i])}";
-                dataTxt += $" {ConvertBoolToInt(respUps[i])} {onsetTimes[i]}";
-                sw.WriteLine(dataTxt);
-            }
-            sw.Close();
-        }
     }
 
     private void ChangeGuideText(string text, bool isEnabled)
@@ -299,19 +299,15 @@ public class Main : MonoBehaviour
         {
             if (RespUp.GetState(HandType))
             {
-                ratios.Add(currentRatio);
-                topBeltMoveToRights.Add(topBeltMoveToRight);
-                respUps.Add(true);
-                onsetTimes.Add(onsetTime);
+                currentRespUp = true;
+                WriteData();
                 step++;
             }
 
             if (RespDown.GetState(HandType))
             {
-                ratios.Add(currentRatio);
-                topBeltMoveToRights.Add(topBeltMoveToRight);
-                respUps.Add(false);
-                onsetTimes.Add(onsetTime);
+                currentRespUp = false;
+                WriteData();
                 step++;
             }
         }
@@ -328,7 +324,7 @@ public class Main : MonoBehaviour
                 if (currentRatio > 0)
                 {
                     // 右へ動く刺激の方が速いとき
-                    if (topBeltMoveToRight == respUps[currentTrial - 1])
+                    if (topBeltMoveToRight == currentRespUp)
                     {
                         currentCorrect++;
                     }
@@ -342,7 +338,7 @@ public class Main : MonoBehaviour
                 else
                 {
                     // 左へ動く刺激の方が速いとき
-                    if (topBeltMoveToRight != respUps[currentTrial - 1])
+                    if (topBeltMoveToRight != currentRespUp)
                     {
                         currentCorrect++;
                     }
