@@ -7,10 +7,14 @@ namespace PupilLabs
     public class EyeTrackingDataManager : MonoBehaviour
     {
         public GazeController gazeController;
+        public SubscriptionsController subscriptionsController;
+        private PupilListener pupilListener;
         private bool isGazing = false;
         private static string filePath;
         private static StreamWriter writer;
         private static bool isRecording;
+        private float pupilConfidence;
+        private float pupilDiameter;
         private bool isBinocular;
         private Vector3 gazeNormalLeft;
         private Vector3 gazeNormalRight;
@@ -28,6 +32,13 @@ namespace PupilLabs
 
         void OnEnable()
         {
+            if (pupilListener == null)
+            {
+                pupilListener = new PupilListener(subscriptionsController);
+            }
+            pupilListener.Enable();
+            pupilListener.OnReceivePupilData += ReceivePupilData;
+
             if (gazeController == null)
             {
                 Debug.LogWarning("Required GazeController missing");
@@ -47,6 +58,9 @@ namespace PupilLabs
         
         void OnDisable()
         {
+            pupilListener.Disable();
+            pupilListener.OnReceivePupilData -= ReceivePupilData;
+
             if (!isGazing || !enabled)
             {
                 Debug.Log("Nothing to stop.");
@@ -55,6 +69,12 @@ namespace PupilLabs
 
             isGazing = false;
             gazeController.OnReceive3dGaze -= ReceiveGaze;
+        }
+
+        void ReceivePupilData(PupilData pupilData)
+        {
+            pupilConfidence = pupilData.Confidence;
+            pupilDiameter = pupilData.Diameter;
         }
 
         void ReceiveGaze(GazeData gazeData)
@@ -93,7 +113,8 @@ namespace PupilLabs
             filePath = Application.dataPath + $"/Results/{fileName}_eyedata.txt";
             FileInfo fi = new FileInfo(filePath);
             string header = "";
-            header += "gaze_normal_left_x gaze_normal_left_y gaze_normal_left_z";
+            header += "pupil_diameter pupil_confidence";
+            header += " gaze_normal_left_x gaze_normal_left_y gaze_normal_left_z";
             header += " gaze_normal_right_x gaze_normal_right_y gaze_normal_right_z";
             header += " is_binocular gaze_confidence";
             header += " time";
@@ -107,7 +128,8 @@ namespace PupilLabs
         private async void WriteData()
         {
             string data = "";
-            data += $"{gazeNormalLeft.x} {gazeNormalLeft.y} {gazeNormalLeft.z}";
+            data += $"{pupilDiameter} {pupilConfidence}";
+            data += $" {gazeNormalLeft.x} {gazeNormalLeft.y} {gazeNormalLeft.z}";
             data += $" {gazeNormalRight.x} {gazeNormalRight.y} {gazeNormalRight.z}";
             data += $" {ConvertBoolToInt(isBinocular)} {gazeConfidence}";
             data += $" {time}";
