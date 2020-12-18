@@ -203,10 +203,10 @@ public class Main : MonoBehaviour
                     // 規定回数連続で正答した場合は次のstepへ以降する
                     currentCorrect = 0;
                     currentRatio = Math.Abs(currentRatio) - Settings.ratioStep;
-                    if (currentRatio < 0)
+                    if (!(currentRatio > 0))
                     {
                         // ここにはほとんど来ないはず
-                        currentRatio = 0;
+                        currentRatio = Settings.ratioStep;
                     }
                 }
                 // 次のratioの符号を決定する
