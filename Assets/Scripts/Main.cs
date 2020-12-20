@@ -202,11 +202,11 @@ public class Main : MonoBehaviour
                 {
                     // 規定回数連続で正答した場合は次のstepへ以降する
                     currentCorrect = 0;
-                    currentRatio = Math.Abs(currentRatio) - Settings.ratioStep;
+                    currentRatio = Math.Round(Math.Abs(currentRatio) - Settings.ratioStep, 1);
                     if (!(currentRatio > 0))
                     {
                         // ここにはほとんど来ないはず
-                        currentRatio = Settings.ratioStep;
+                        currentRatio = Math.Round(Settings.ratioStep, 1);
                     }
                 }
                 // 次のratioの符号を決定する
