@@ -11,5 +11,5 @@ public class Settings
     public static double ratioStep = 0.1;
     public static int consecutiveCorrentAnswers = 2; // 次のratioへ移動するために必要な連続正解数
     public static int trials = 40;
-    public static int shotCount = 4; // ベースとなる反復回数
+    public static int shotCount = 4; // ベースとなる反復回数 Default: 4
 }
